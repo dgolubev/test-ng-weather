@@ -1,0 +1,1 @@
+import Forecast from "./Forecast";import City from "./City";export default class CityForecast {  constructor(    public city: City,    public list: Forecast[],    public cnt: number,  ) {  }}

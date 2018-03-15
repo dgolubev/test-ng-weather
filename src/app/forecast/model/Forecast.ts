@@ -1,0 +1,1 @@
+export class ForecastMain {  public temp: number;}export default class Forecast {  public dt: number;  public main: ForecastMain;  constructor() {  }}
