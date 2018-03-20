@@ -1,11 +1,12 @@
 import {BrowserModule} from '@angular/platform-browser';
 import {NgModule} from '@angular/core';
 import {HttpClientModule} from "@angular/common/http";
+import {FormsModule} from "@angular/forms";
+import {StoreModule} from "@ngrx/store";
 
 import {AppComponent} from './app.component';
-import {WeatherService} from "./forecast/service/weather.service";
 import {SearchFormComponent as ForecastSearchFormComponent} from './forecast/component/search-form/search-form.component';
-import {FormsModule} from "@angular/forms";
+import {forecastReducer} from "./forecast/reducer/reducer";
 
 @NgModule({
   declarations: [
@@ -16,12 +17,12 @@ import {FormsModule} from "@angular/forms";
     BrowserModule,
     FormsModule,
     HttpClientModule,
+    StoreModule.forRoot({forecastReducer: forecastReducer})
   ],
   providers: [
-    // {provide: 'WeatherService', useClass: WeatherService},
-    WeatherService
   ],
   bootstrap: [AppComponent]
+
 })
 export class AppModule {
 }

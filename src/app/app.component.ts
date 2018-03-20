@@ -1,19 +1,14 @@
 import {Component, OnInit} from '@angular/core';
-import {WeatherService} from "./forecast/service/weather.service";
-import {SearchForType} from "./forecast/component/search-form/search-form.component";
 import {HttpErrorResponse} from "@angular/common/http";
 import {Observable} from "rxjs/Observable";
-import {Subject} from "rxjs/Subject";
-import {BehaviorSubject} from "rxjs/BehaviorSubject";
 
-import 'rxjs/add/observable/of';
-import 'rxjs/add/operator/do';
-import 'rxjs/add/operator/distinctUntilChanged';
-import 'rxjs/operator/startWith';
-import 'rxjs/add/operator/switchMap';
-import 'rxjs/add/operator/catch';
+import {select, Store} from "@ngrx/store";
+import {distinctUntilChanged, filter, tap} from 'rxjs/operators';
 
+import {WeatherService} from "./forecast/service/weather.service";
 import CityForecast from "./forecast/model/CityForecast";
+import * as ForecastReducer from "./forecast/reducer/reducer";
+import * as ForecastAction from "./forecast/reducer/action";
 
 @Component({
   selector: 'app-root',
@@ -23,10 +18,10 @@ import CityForecast from "./forecast/model/CityForecast";
   template: `
     <h1>24 hours weather forecast</h1>
     <div>
-        <div id="errorCntr" *ngIf="errors.length > 0">
+        <div id="errorCntr" *ngIf="(errors$ | async).length > 0">
             <h4>Errors: </h4>
             <ul>
-                <li *ngFor="let error of errors">{{error}}</li>
+                <li *ngFor="let error of errors$ |async">{{error.message}}</li>
             </ul>
         </div>
 
@@ -43,7 +38,7 @@ import CityForecast from "./forecast/model/CityForecast";
                 </tr>
             </thead>
             <tbody>
-                <tr *ngFor="let item of getItems | async">
+                <tr *ngFor="let item of items$ | async">
                     <td>{{item.city.name}}</td>
                     
                     <td *ngFor="let forecast of item.list">{{forecast.main.temp}}</td>
@@ -53,58 +48,48 @@ import CityForecast from "./forecast/model/CityForecast";
         
         {{weatherSrv.message}}
     </div>
-    <div *ngIf="isLoading" id="loadingOverlay"><p>Loading</p></div>
+    <div *ngIf="isLoading$ | async" id="loadingOverlay"><p>Loading</p></div>
   `,
   styleUrls: ['./app.component.css'],
 })
 
 export class AppComponent implements OnInit {
-  private isLoading = false;
-
-  private searchTerm$: Subject<string> = new Subject<string>();
-  private errors: string[] = [];
-
-  private items$: BehaviorSubject<Set<CityForecast>> = new BehaviorSubject(new Set<CityForecast>());
-
-  get getItems(): Observable<Set<CityForecast>> {
-    return this.items$.asObservable();
-  }
+  private items$: Observable<Set<CityForecast>>;
+  private errors$: Observable<Error[]>;
+  private isLoading$: Observable<boolean> = new Observable<false>();
 
   constructor(
-    private weatherSrv: WeatherService
+    private weatherSrv: WeatherService,
+    private store: Store<ForecastReducer.ForecastState>
   ) {
+    this.items$ = store.pipe(select(ForecastReducer.getForecastItems));
+    this.errors$ = store.pipe(select(ForecastReducer.getForecastErrors));
+    this.isLoading$ = store.pipe(select(ForecastReducer.isLoading));
   }
 
   public ngOnInit(): void {
-    this.searchTerm$
-      .distinctUntilChanged()
-      .do(() => {
-        this.isLoading = true;
-      })
-      .subscribe((term: string) => {
-        this.weatherSrv.getByCity(term)
-          .subscribe(
-            (forecast: CityForecast) => {
-              this.items$.next(this.items$.getValue().add(forecast));
-            },
-            (err: HttpErrorResponse) => {
-              this.isLoading = false;
+    this.store.select(ForecastReducer.getSearchTerm)
+      .pipe(
+        filter((term: string) => term !== ''),
+        distinctUntilChanged(),
+        tap((term: string) => {
+          this.store.dispatch(new ForecastAction.LoadForCityAction());
 
-              if (err.status == 404) {
-                this.errors.push('Forecast not found');
-              }
-            },
-            () => {
-              this.isLoading = false;
-            }
-          );
-      });
-  }
-
-  private processSearch(event: SearchForType): void {
-    console.log('processSearch !!', event.searchFor);
-    this.errors = [];
-
-    this.searchTerm$.next(event.searchFor);
+          return this.weatherSrv.getByCity(term)
+            .subscribe(
+              (forecast: CityForecast) => {
+                this.store.dispatch(new ForecastAction.LoadForCitySuccessAction(forecast));
+              },
+              (err: HttpErrorResponse) => {
+                let error: Error = err;
+                if (err.status > 400) {
+                  error = new Error(`Error occurred in during getting forecast for "${term}"`);
+                }
+                this.store.dispatch(new ForecastAction.LoadForCityFailAction(error));
+              },
+            );
+        }),
+      )
+      .subscribe();
   }
 }
