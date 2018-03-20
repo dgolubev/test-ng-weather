@@ -1,10 +1,12 @@
 import {Injectable} from '@angular/core';
 import {Observable} from "rxjs/Observable";
-import {map} from 'rxjs/operators'
-import {HttpClient, HttpParams} from "@angular/common/http";
+import {catchError, map} from 'rxjs/operators'
+import {HttpClient, HttpErrorResponse, HttpParams} from "@angular/common/http";
 
 import Forecast from "../model/Forecast";
 import CityForecast from "../model/CityForecast";
+
+import 'rxjs/add/observable/throw';
 
 @Injectable()
 export class WeatherService {
@@ -14,10 +16,9 @@ export class WeatherService {
   }
 
   public getByCity(city: string): Observable<CityForecast> {
-    console.log('ser: city:', city);
-
     const queryParams: HttpParams = new HttpParams()
       .set('q', city)
+      .set('units', 'metric')
       .set('appid', '3490e68b3b96961ce5d16f37ef5e8886');
 
     return this.http.get<CityForecast>(WeatherService.API_URL, {params: queryParams})
@@ -51,11 +52,13 @@ export class WeatherService {
             //  left forecast only for 12am, 6am, 12pm and 6pm
             .filter((item: Forecast) => {
               return (new Date(item.dt * 1000).getUTCHours() % 6 == 0);
-            })
-          ;
+            });
 
           return result;
-        })
+        }),
+        catchError((error: HttpErrorResponse) => {
+          return Observable.throw(error);
+        }),
       );
   }
 }
