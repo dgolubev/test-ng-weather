@@ -4,6 +4,7 @@ import {Observable} from "rxjs/Observable";
 
 import {select, Store} from "@ngrx/store";
 import {distinctUntilChanged, filter, tap} from 'rxjs/operators';
+import {sprintf} from 'sprintf-js';
 
 import {WeatherService} from "./forecast/service/weather.service";
 import CityForecast from "./forecast/model/CityForecast";
@@ -27,7 +28,7 @@ import * as ForecastAction from "./forecast/reducer/action";
 
         <app-forecast-search-form (evnSearch)="processSearch($event)"></app-forecast-search-form>
         
-        <table>
+        <table *ngIf="(items$ | async).size > 0">
             <thead>
                 <tr>
                     <th>City</th>
@@ -54,6 +55,8 @@ import * as ForecastAction from "./forecast/reducer/action";
 })
 
 export class AppComponent implements OnInit {
+  static readonly ERR_NOT_FOUND: string = `Error occurred in during getting forecast for "%s"`;
+
   private items$: Observable<Set<CityForecast>>;
   private errors$: Observable<Error[]>;
   private isLoading$: Observable<boolean> = new Observable<false>();
@@ -83,7 +86,7 @@ export class AppComponent implements OnInit {
               (err: HttpErrorResponse) => {
                 let error: Error = err;
                 if (err.status > 400) {
-                  error = new Error(`Error occurred in during getting forecast for "${term}"`);
+                  error = new Error(sprintf(AppComponent.ERR_NOT_FOUND, term));
                 }
                 this.store.dispatch(new ForecastAction.LoadForCityFailAction(error));
               },
