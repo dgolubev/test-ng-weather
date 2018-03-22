@@ -10,16 +10,16 @@ import 'rxjs/add/observable/throw';
 
 @Injectable()
 export class WeatherService {
-  private static readonly API_URL = 'http://api.openweathermap.org/data/2.5/forecast';
+  public static readonly API_URL = 'http://api.openweathermap.org/data/2.5/forecast?' +
+    'appid=3490e68b3b96961ce5d16f37ef5e8886&' +
+    'units=metric';
 
   constructor(private http: HttpClient) {
   }
 
   public getByCity(city: string): Observable<CityForecast> {
     const queryParams: HttpParams = new HttpParams()
-      .set('q', city)
-      .set('units', 'metric')
-      .set('appid', '3490e68b3b96961ce5d16f37ef5e8886');
+      .set('q', city);
 
     return this.http.get<CityForecast>(WeatherService.API_URL, {params: queryParams})
       .pipe(
